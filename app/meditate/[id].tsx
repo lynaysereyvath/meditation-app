@@ -7,12 +7,16 @@ import AppGradient from "@/components/AppGradient";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { useEffect, useState } from "react";
 import CustomButton from "@/components/CustomButton";
+import { Audio } from "expo-av";
+import { MEDITATION_DATA, AUDIO_FILES } from "@/constants/MeditationData";
 
 const Meditate = () => {
   const { id } = useLocalSearchParams();
 
   const [secondsRemaining, setSecondsRemaining] = useState(10);
   const [isMeditating, setIsMeditating] = useState(false);
+  const [audioSound, setSound] = useState<Audio.Sound>();
+  const [isPlayingAudio, setPlayingAudio] = useState(false);
 
   useEffect(() => {
     let timerId: NodeJS.Timeout;
@@ -32,6 +36,42 @@ const Meditate = () => {
       clearTimeout(timerId);
     };
   }, [secondsRemaining, isMeditating]);
+
+  useEffect(() => {
+    return () => {
+      audioSound?.unloadAsync();
+    };
+  }, [audioSound]);
+
+  const toggleMeditationSessionStatus = async () => {
+    if (secondsRemaining === 0) setSecondsRemaining(10);
+
+    setIsMeditating(!isMeditating);
+
+    await toggleSound();
+  };
+
+  const toggleSound = async () => {
+    const sound = audioSound ? audioSound : await initializeSound();
+
+    const status = await sound?.getStatusAsync();
+
+    if (status?.isLoaded) {
+      await sound.playAsync();
+      setPlayingAudio(true);
+    } else {
+      await sound.pauseAsync();
+      setPlayingAudio(false);
+    }
+  };
+
+  const initializeSound = async () => {
+    const audioFileName = MEDITATION_DATA[Number(id) - 1].audio;
+
+    const { sound } = await Audio.Sound.createAsync(AUDIO_FILES[audioFileName]);
+    setSound(sound);
+    return sound;
+  };
 
   const formattedTimeMinutes = String(
     Math.floor(secondsRemaining / 60)
@@ -64,7 +104,7 @@ const Meditate = () => {
             <CustomButton
               title="Start Meditation"
               onPress={() => {
-                setIsMeditating(true);
+                toggleMeditationSessionStatus();
               }}
             />
           </View>
